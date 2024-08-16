@@ -12,6 +12,13 @@ trigger GardenTrigger on CAMPX__Garden__c (before insert, before update, after i
     }
 
     if(Trigger.isAfter){
-        GardenTriggerHandler.gardenAfterInsert(Trigger.new);
+        if(Trigger.isInsert){
+            GardenTriggerHandler.gardenAfterInsert(Trigger.new);
+        }
+
+        if(Trigger.isUpdate){
+            GardenTriggerHandler.gardenAfterUpdate(Trigger.new, Trigger.oldMap);
+        }
+        
     }
 }

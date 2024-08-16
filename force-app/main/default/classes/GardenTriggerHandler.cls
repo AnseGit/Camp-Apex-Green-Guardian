@@ -8,12 +8,13 @@ public with sharing class GardenTriggerHandler {
     
     public static void gardensBeforeUpdate (List<CAMPX__Garden__c> gardenList, Map<Id, CAMPX__Garden__c> oldGardenMap){
         List<Task> managerTaskList = new List<Task>();
+
         for(CAMPX__Garden__c garden : gardenList){
-            if(garden.CAMPX__Manager__c != null && oldGardenMap.get(garden.Id).CAMPX__Manager__c != garden.CAMPX__Manager__c){
+            String prevManagerId = oldGardenMap.get(garden.Id).CAMPX__Manager__c;
+            if(garden.CAMPX__Manager__c != null && garden.CAMPX__Manager__c != prevManagerId){
                 managerTaskList.add(generateManagerTask(garden, managerTaskList));
             }
-        }
-        
+        }     
     }
 
     public static void gardenAfterInsert (List<CAMPX__Garden__c> gardenList){
@@ -21,9 +22,29 @@ public with sharing class GardenTriggerHandler {
         for(CAMPX__Garden__c garden : gardenList){
             if(garden.CAMPX__Manager__c != null){
                 managerTaskList.add(generateManagerTask(garden, managerTaskList));
+            } 
+        }
+
+        if(!managerTaskList.isEmpty()){
+            insert managerTaskList;
+        }
+    }
+
+    public static void gardenAfterUpdate (List<CAMPX__Garden__c> gardenList, Map<Id, CAMPX__Garden__c> oldGardenMap){
+        List<Task> taskToReassignList = new List <Task>();
+        
+        for(CAMPX__Garden__c garden : gardenList){
+            String prevManagerId = oldGardenMap.get(garden.Id).CAMPX__Manager__c;
+            if(garden.CAMPX__Manager__c != null && prevManagerId != null){
+                if(garden.CAMPX__Manager__c != prevManagerId){
+                    taskToReassignList.addAll(reassignManagerTasks(garden, prevManagerId));
+                }
             }
         }
-        insert managerTaskList;   
+         
+        if(!taskToReassignList.isEmpty()){
+            update taskToReassignList;
+        } 
     }
 
     private static void handleInsertLogic(CAMPX__Garden__c garden){
@@ -41,5 +62,21 @@ public with sharing class GardenTriggerHandler {
             task.WhatId = garden.Id;
 
             return task;
+    }
+
+    private static List<task> reassignManagerTasks (CAMPX__Garden__c garden, String prevManagerId){ 
+        List<Task> reassignedTaskList = new List<Task>();
+        list<Task> taskToReassign = [SELECT Id, OwnerId, subject, whatId FROM Task WHERE Subject = 'Acquire Plants' AND WhatId = :garden.Id AND OwnerId = :prevManagerId AND status != 'Completed'];
+        system.debug(taskToReassign);
+
+        for(Task task : taskToReassign){
+            Task reassignedTask = new Task();
+            reassignedTask.Id = task.Id;
+            reassignedTask.OwnerId = garden.CAMPX__Manager__c;
+
+            reassignedTaskList.add(reassignedTask);
+        }
+
+        return reassignedTaskList;
     }
 }
