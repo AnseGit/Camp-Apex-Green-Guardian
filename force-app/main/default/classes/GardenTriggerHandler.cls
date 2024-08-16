@@ -34,6 +34,7 @@ public with sharing class GardenTriggerHandler {
 
     public static void gardenAfterUpdate (List<CAMPX__Garden__c> gardenList, Map<Id, CAMPX__Garden__c> oldGardenMap){
         List<Task> taskToReassignList = new List <Task>();
+        List<Task> taskToDelete = new List<Task>();
         
         for(CAMPX__Garden__c garden : gardenList){
             String prevManagerId = oldGardenMap.get(garden.Id).CAMPX__Manager__c;
@@ -42,12 +43,22 @@ public with sharing class GardenTriggerHandler {
                     taskToReassignList.addAll(reassignManagerTasks(garden, prevManagerId));
                 }
             }
+
+            if(garden.CAMPX__Manager__c == null && prevManagerId != null){
+                taskToDelete.addAll(getTaskToDelete(garden, prevManagerId));
+            }
         }
          
-        if(!taskToReassignList.isEmpty()){
-            if (Schema.sObjectType.Task.isUpdateable()){
-                update taskToReassignList;
-            }     
+        if (Schema.sObjectType.Task.isUpdateable()){
+            if(!taskToReassignList.isEmpty()){
+                update taskToReassignList;     
+            }
+        } 
+
+        if (Schema.sObjectType.Task.isDeletable()){
+            if(!taskToDelete.isEmpty()){
+                    delete taskToDelete;
+            }
         } 
     }
 
@@ -83,5 +94,16 @@ public with sharing class GardenTriggerHandler {
         }
 
         return reassignedTaskList;
+    }
+
+    private static list<task> getTaskToDelete (CAMPX__Garden__c garden, String prevManagerId){
+        List<Task> taskToDelete = [SELECT id, status, whatId, OwnerId
+                                    FROM TASK
+                                    WHERE Subject = 'Acquire Plants'
+                                        AND WhatId = :garden.Id
+                                        AND OwnerId = :prevManagerId
+                                        AND status != 'Completed' WITH SECURITY_ENFORCED];
+
+        return taskToDelete;
     }
 }
