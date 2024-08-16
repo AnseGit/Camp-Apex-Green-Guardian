@@ -1,6 +1,6 @@
 public with sharing class GardenTriggerHandler {
 
-    public static void gardenBeforeInsert(List<CAMPX__Garden__c> gardenList, Map<Id, CAMPX__Garden__c> oldGardenMap){
+    public static void gardenBeforeInsert(List<CAMPX__Garden__c> gardenList){
         for(CAMPX__Garden__c garden : gardenList){
                 handleInsertLogic(garden);
             }
@@ -26,7 +26,9 @@ public with sharing class GardenTriggerHandler {
         }
 
         if(!managerTaskList.isEmpty()){
-            insert managerTaskList;
+            if (Schema.sObjectType.Task.isCreateable()){
+                insert managerTaskList;
+            }  
         }
     }
 
@@ -43,7 +45,9 @@ public with sharing class GardenTriggerHandler {
         }
          
         if(!taskToReassignList.isEmpty()){
-            update taskToReassignList;
+            if (Schema.sObjectType.Task.isUpdateable()){
+                update taskToReassignList;
+            }     
         } 
     }
 
@@ -66,15 +70,16 @@ public with sharing class GardenTriggerHandler {
 
     private static List<task> reassignManagerTasks (CAMPX__Garden__c garden, String prevManagerId){ 
         List<Task> reassignedTaskList = new List<Task>();
-        list<Task> taskToReassign = [SELECT Id, OwnerId, subject, whatId FROM Task WHERE Subject = 'Acquire Plants' AND WhatId = :garden.Id AND OwnerId = :prevManagerId AND status != 'Completed'];
-        system.debug(taskToReassign);
+        list<Task> taskToReassign = [SELECT Id, OwnerId, subject, whatId 
+                                    FROM Task 
+                                    WHERE Subject = 'Acquire Plants' 
+                                        AND WhatId = :garden.Id 
+                                        AND OwnerId = :prevManagerId 
+                                        AND status != 'Completed' WITH SECURITY_ENFORCED];
 
         for(Task task : taskToReassign){
-            Task reassignedTask = new Task();
-            reassignedTask.Id = task.Id;
-            reassignedTask.OwnerId = garden.CAMPX__Manager__c;
-
-            reassignedTaskList.add(reassignedTask);
+            task.OwnerId = garden.CAMPX__Manager__c;
+            reassignedTaskList.add(task);
         }
 
         return reassignedTaskList;
