@@ -3,6 +3,10 @@ public with sharing class GardenTriggerHandler {
     public static void gardenBeforeInsert(List<CAMPX__Garden__c> gardenList){
         for(CAMPX__Garden__c garden : gardenList){
                 handleInsertLogic(garden);
+                if(garden.CAMPX__Manager__c != null){
+                    garden.CAMPX__Manager_Start_Date__c = ManagerStartDate(garden);
+                }
+                
             }
         }
     
@@ -13,6 +17,10 @@ public with sharing class GardenTriggerHandler {
             String prevManagerId = oldGardenMap.get(garden.Id).CAMPX__Manager__c;
             if(garden.CAMPX__Manager__c != null && garden.CAMPX__Manager__c != prevManagerId){
                 managerTaskList.add(generateManagerTask(garden, managerTaskList));
+            }
+
+            if(garden.CAMPX__Manager__c != prevManagerId){
+                garden.CAMPX__Manager_Start_Date__c = ManagerStartDate(garden);
             }
         }     
     }
@@ -46,9 +54,10 @@ public with sharing class GardenTriggerHandler {
 
             if(garden.CAMPX__Manager__c == null && prevManagerId != null){
                 taskToDelete.addAll(getTaskToDelete(garden, prevManagerId));
+                garden.CAMPX__Manager_Start_Date__c = ManagerStartDate(garden);
             }
         }
-         
+
         if (Schema.sObjectType.Task.isUpdateable()){
             if(!taskToReassignList.isEmpty()){
                 update taskToReassignList;     
@@ -105,5 +114,15 @@ public with sharing class GardenTriggerHandler {
                                         AND status != 'Completed' WITH SECURITY_ENFORCED];
 
         return taskToDelete;
+    }
+
+    private static Date ManagerStartDate(CAMPX__Garden__c garden){
+        if(CAMPX__Garden__c.CAMPX__Manager__c != null){
+            garden.CAMPX__Manager_Start_Date__c = System.today();
+        } else{
+            garden.CAMPX__Manager_Start_Date__c = null;
+        }
+
+        return garden.CAMPX__Manager_Start_Date__c;
     }
 }
